@@ -20,7 +20,7 @@ pub struct Dot {
     pub size: f32,
 }
 
-static API_KEY : &str = "balls";
+static API_KEY : &str = "supersecretapikey";
 
 #[get("/<id>/<pass>")]
 async fn retrieve(id: &str, pass: &str) -> Option<File> {
