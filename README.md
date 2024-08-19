@@ -1,1 +1,0 @@
-# paint-party-server
