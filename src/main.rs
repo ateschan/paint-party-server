@@ -20,7 +20,7 @@ pub struct Dot {
     pub size: f32,
 }
 
-static API_KEY : &str = "supersecretapikey";
+static API_KEY : &str = "supersecret";
 
 #[get("/<id>/<pass>")]
 async fn retrieve(id: &str, pass: &str) -> Option<File> {
@@ -92,8 +92,8 @@ async fn upload<'a>(id: &str, dots: Json<Vec<Dot>>, pass : &str) -> std::io::Res
 
     // Append new dots to existing data
     let mut layered_proper: Vec<Dot> = Vec::new();
-    layered_proper.extend(dots.0.iter().cloned());
     layered_proper.extend(existing_dots);
+    layered_proper.extend(dots.0.iter().cloned());
 
     // Overwrite the file with the updated data
     let mut file = OpenOptions::new()
