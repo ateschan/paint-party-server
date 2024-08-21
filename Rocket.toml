@@ -15,6 +15,11 @@ port = 9001
 
 ## set only when compiled in release mode, i.e, `cargo build --release`
 [release]
-port = 9999
+limits = { json = "100MiB" }
+address = "192.168.0.95"
+workers = 4
+keep_alive = 5
+read_timeout = 5
+write_timeout = 5
+port = 49152
 ip_header = false
-secret_key = "hPrYyЭRiMyµ5sBB1π+CMæ1køFsåqKvBiQJxBVHQk="
