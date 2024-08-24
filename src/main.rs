@@ -17,6 +17,7 @@ pub struct Dot {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+    pub a: u8,
     pub size: f32,
 }
 
@@ -38,6 +39,7 @@ async fn retrieve(id: &str, pass: &str) -> Option<File> {
             r: 0,
             g: 0,
             b: 0,
+            a: 0,
             size: 0.0,
         }];
 
