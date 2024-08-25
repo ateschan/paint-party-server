@@ -1,128 +1,34 @@
-#[macro_use]
-extern crate rocket;
-extern crate fern;
-extern crate log;
-use rocket::tokio::io::AsyncWriteExt;
-use rocket::{serde::json::Json, tokio::fs::File};
-use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
-use std::path::Path;
-use std::vec::Vec;
-pub mod util;
+use std::{collections::HashMap, convert::Infallible, sync::Arc};
+use tokio::sync::{mpsc, Mutex};
+use warp::{ws::Message, Filter, Rejection};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Dot {
-    pub x: f32,
-    pub y: f32,
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-    pub size: f32,
+mod handlers;
+mod ws;
+
+#[derive(Debug, Clone)]
+pub struct Client {
+    pub client_id: String,
+    pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
 }
 
-static API_KEY : &str = "supersecret";
+type Clients = Arc<Mutex<HashMap<String, Client>>>;
+type Result<T> = std::result::Result<T, Rejection>;
 
-#[get("/<id>/<pass>")]
-async fn retrieve(id: &str, pass: &str) -> Option<File> {
-    if pass != API_KEY {
-        return None;
-    }
-    let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
-    let filename = Path::new(upload_dir).join(id);
-    if Path::new(upload_dir).join(id).exists() {
-        File::open(&filename).await.ok()
-    } else {
-        let empty_vec: Vec<Dot> = vec![Dot {
-            x: 0.0,
-            y: 0.0,
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 0,
-            size: 0.0,
-        }];
+#[tokio::main]
+async fn main() {
+    let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
 
-        let file = rocket::tokio::fs::File::create(&filename).await;
-        let data = serde_json::to_string(&empty_vec).unwrap();
-        file.expect("").write_all(data.as_bytes()).await;
+    println!("Configuring websocket route");
+    let ws_route = warp::path("ws")
+        .and(warp::ws())
+        .and(with_clients(clients.clone()))
+        .and_then(handlers::ws_handler);
 
-        File::open(&filename).await.ok()
-    }
+    let routes = ws_route.with(warp::cors().allow_any_origin());
+    println!("Starting server");
+    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }
 
-#[get("/<id>/<pass>")]
-async fn delete(id: &str, pass: &str) -> std::io::Result<String> {
-    
-    if pass != API_KEY {
-        return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Incorrect password"));
-    }
-    
-
-    let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
-    let file_path = format!("{}/{}", upload_dir, id);
-
-    // Attempt to delete the file directly
-    match std::fs::remove_file(&file_path) {
-        Ok(_) => Ok(String::from("File deleted successfully")),
-        Err(e) => Err(e),
-    }
-
-
-}
-
-#[rocket::post("/<id>/<pass>", data = "<dots>")]
-async fn upload<'a>(id: &str, dots: Json<Vec<Dot>>, pass : &str) -> std::io::Result<String> {
-
-    if pass != API_KEY {
-        return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Incorrect password"));
-    }
-    
-    let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
-    let filename = Path::new(upload_dir).join(id);
-
-    // Load existing data if the file exists
-    let existing_dots: Vec<Dot> = if filename.exists() {
-        let file = OpenOptions::new().read(true).open(&filename)?;
-        serde_json::from_reader(file)?
-    } else {
-        Vec::new()
-    };
-
-    debug!("EXISTING DOTS: {:?}", existing_dots);
-    debug!("NEW DOTS: {:?}", dots.0.iter().cloned());
-
-    // Append new dots to existing data
-    let mut layered_proper: Vec<Dot> = Vec::new();
-    layered_proper.extend(existing_dots);
-    layered_proper.extend(dots.0.iter().cloned());
-
-    // Overwrite the file with the updated data
-    let mut file = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open(&filename)?;
-
-    serde_json::to_writer_pretty(&mut file, &layered_proper)?;
-
-    Ok(String::from("OK"))
-}
-
-#[launch]
-fn rocket() -> _ {
-    //logger for debugging
-    //let _ = setup_logger();
-    rocket::build()
-        .mount("/", routes![retrieve, upload])
-        .mount("/delete/", routes![delete])
-}
-
-pub fn get_unique_dots(dots: &mut Vec<Dot>) -> Vec<Dot> {
-    let mut result: Vec<Dot> = Vec::new();
-    for dot in dots {
-        if !result.contains(dot) {
-            result.push(dot.clone());
-        }
-    }
-    result
+fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
+    warp::any().map(move || clients.clone())
 }
