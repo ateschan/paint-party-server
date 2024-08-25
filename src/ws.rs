@@ -71,7 +71,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     //So here I would have an if message = GET
-    let mut message: Vec<&str> = raw.split(' ').collect();
+    let message: Vec<&str> = raw.split(' ').collect();
 
 
     if message[0] == "GET" || message[0] == "GET\n" {
@@ -110,7 +110,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         match locked.get(client_id) {
             Some(v) => {
                 if let Some(sender) = &v.sender {
-                    println!("GET Recieved! File at {:?}", &file_path.truncate(file_path.len() - 2));
+                    println!("GET Recieved! File at {:?}", file_path);
                     let _ = sender.send(Ok(Message::binary(contents)));
                 }
             }
