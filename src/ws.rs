@@ -10,6 +10,7 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
+use warp::filters::ext::get;
 use warp::reply::{html, with_status};
 use warp::ws::{Message, WebSocket};
 
@@ -24,10 +25,9 @@ pub struct Dot {
     pub size: f32,
 }
 
-static API_KEY : &str = "supersecretapikey";
+static API_KEY: &str = "supersecretapikey";
 
 pub async fn client_connection(ws: WebSocket, clients: Clients) {
-    
     println!("establishing client connection... {:?}", ws);
 
     let (client_ws_sender, mut client_ws_rcv) = ws.split();
@@ -77,7 +77,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     let message: Vec<&str> = raw.split(' ').collect();
 
     if message[0] == "GET" || message[0] == "GET\n" {
-        if API_KEY != message[2] || !is_i32(message[1]){
+        if API_KEY != message[2] || !is_i32(message[1]) {
             println!("INVALID APIKEY ATTEMPTED");
             return;
         }
@@ -116,7 +116,10 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
             Some(v) => {
                 if let Some(sender) = &v.sender {
                     println!("GET Recieved! File at {:?}", file_path);
-                    let _ = sender.send(Ok(Message::text(format!("GET_RES {}",from_utf8(&contents).unwrap()))));
+                    let _ = sender.send(Ok(Message::text(format!(
+                        "GET_RES {}",
+                        from_utf8(&contents).unwrap()
+                    ))));
                 }
             }
             None => return,
@@ -125,7 +128,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     if message[0] == "PUT" || message[0] == "PUT\n" {
-        if API_KEY != message[2] || !is_i32(message[1]){
+        if API_KEY != message[2] || !is_i32(message[1]) {
             println!("INVALID APIKEY ATTEMPTED");
             return;
         }
@@ -134,8 +137,6 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
         let filename = Path::new(upload_dir).join(message[1]);
         let existing_dots: Vec<Dot> = read_dots_from_file(&filename).unwrap();
-
-
 
         //let raw : String = format!("{}", raw[2]);
         let dots: Vec<Dot> = serde_json::from_str(message[3]).unwrap();
@@ -159,6 +160,24 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
             }
             None => return,
         }
+
+        for client in locked.iter() {
+            if client.1.client_id != client_id {
+                let sender = client.1.sender.clone().unwrap();
+
+                let ms_builder = Message::text(format!(
+                    "UPD_RES {} {}", 
+                    message[1],
+                    serde_json::to_string(&dots).unwrap()
+                ));
+
+                println!("UPDATE MESSAGE SENT: {:?}", ms_builder);
+
+                let _ = sender.send(Ok(ms_builder));
+
+            }
+        }
+
         return;
     };
 
@@ -213,4 +232,3 @@ fn serialize_dots_to_string(dots: Vec<Dot>) -> Result<String, serde_json::Error>
 fn is_i32(s: &str) -> bool {
     s.parse::<i32>().is_ok()
 }
-
