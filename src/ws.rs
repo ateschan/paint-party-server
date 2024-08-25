@@ -126,7 +126,8 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         let existing_dots : Vec<Dot> = read_dots_from_file(&filename).unwrap();
         
         //let raw : String = format!("{}", raw[2]); 
-        let dots = serde_json::from_str(message[2]);
+        let dots : Vec<Dot> = serde_json::from_str(message[2]).unwrap();
+        
         let mut layered_proper: Vec<Dot> = Vec::new();
         layered_proper.extend(existing_dots);
         layered_proper.extend(dots.iter().cloned());
