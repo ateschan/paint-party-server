@@ -3,6 +3,7 @@ use futures::{FutureExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
+use std::str::from_utf8;
 use tokio::fs;
 use tokio::fs::{write, File};
 use tokio::io::AsyncReadExt;
@@ -76,12 +77,12 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     let message: Vec<&str> = raw.split(' ').collect();
 
     if message[0] == "GET" || message[0] == "GET\n" {
-        if API_KEY != message[2] {
+        if API_KEY != message[2] || !is_i32(message[1]){
             println!("INVALID APIKEY ATTEMPTED");
             return;
         }
         let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
-        let mut file_path = format!("{}/{}", upload_dir, message[1]);
+        let file_path = format!("{}/{}", upload_dir, message[1]);
         println!("{:?}", file_path);
         let file = match Path::new(&file_path).exists() {
             true => File::open(&file_path).await,
@@ -96,7 +97,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
                     size: 0.0,
                 }];
 
-                tokio::fs::File::create(&file_path).await;
+                let _ = tokio::fs::File::create(&file_path).await;
                 let data = serde_json::to_string(&empty_vec).unwrap();
                 match write(&file_path, data.as_bytes()).await {
                     Ok(a) => println!("File written successfully {:?}", a),
@@ -108,14 +109,14 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         };
 
         let mut contents = vec![];
-        file.unwrap().read_to_end(&mut contents).await;
+        let _ = file.unwrap().read_to_end(&mut contents).await;
 
         let locked = clients.lock().await;
         match locked.get(client_id) {
             Some(v) => {
                 if let Some(sender) = &v.sender {
                     println!("GET Recieved! File at {:?}", file_path);
-                    let _ = sender.send(Ok(Message::binary(contents)));
+                    let _ = sender.send(Ok(Message::text(format!("GET_RES {}",from_utf8(&contents).unwrap()))));
                 }
             }
             None => return,
@@ -124,7 +125,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     if message[0] == "PUT" || message[0] == "PUT\n" {
-        if API_KEY != message[2] {
+        if API_KEY != message[2] || !is_i32(message[1]){
             println!("INVALID APIKEY ATTEMPTED");
             return;
         }
@@ -146,14 +147,14 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         println!("OPENING: {:?}", filename);
         println!("DEPOSITING: {:?}", layered_proper);
 
-        write_file(filename, layered_proper).await;
+        let _ = write_file(filename, layered_proper).await;
 
         let locked = clients.lock().await;
         match locked.get(client_id) {
             Some(v) => {
                 if let Some(sender) = &v.sender {
                     println!("GET Recieved!");
-                    let _ = sender.send(Ok(Message::text("FILE WRITTEN SUCCESSFULLY")));
+                    let _ = sender.send(Ok(Message::text("PUT_RES FILE_WRITTEN_SUCCESSFULLY")));
                 }
             }
             None => return,
@@ -162,7 +163,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     if message[0] == "DEL" || message[0] == "DE:\n" {
-        if API_KEY != message[2] {
+        if API_KEY != message[2] || !is_i32(message[1]) {
             println!("INVALID APIKEY ATTEMPTED");
             return;
         }
@@ -171,18 +172,17 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
         let filename = Path::new(upload_dir).join(message[1]);
         println!("DELETING: {:?}", filename);
 
-        tokio::fs::remove_file(filename).await;
+        let _ = tokio::fs::remove_file(filename).await;
 
         let locked = clients.lock().await;
         match locked.get(client_id) {
             Some(v) => {
                 if let Some(sender) = &v.sender {
-                    let _ = sender.send(Ok(Message::text("FILE DELETED SUCCESSFULLY")));
+                    let _ = sender.send(Ok(Message::text("DEL_RES FILE_DELETED_SUCCESSFULLY")));
                 }
             }
             None => return,
         }
-        return;
     };
 }
 
@@ -209,3 +209,8 @@ fn serialize_dots_to_string(dots: Vec<Dot>) -> Result<String, serde_json::Error>
     let json_string = serde_json::to_string(&dots)?;
     Ok(json_string)
 }
+
+fn is_i32(s: &str) -> bool {
+    s.parse::<i32>().is_ok()
+}
+
