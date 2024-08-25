@@ -9,9 +9,8 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
-use warp::ws::{Message, WebSocket};
-use warp::http::StatusCode;
 use warp::reply::{html, with_status};
+use warp::ws::{Message, WebSocket};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Dot {
@@ -24,7 +23,10 @@ pub struct Dot {
     pub size: f32,
 }
 
+static API_KEY : &str = "supersecretapikey";
+
 pub async fn client_connection(ws: WebSocket, clients: Clients) {
+    
     println!("establishing client connection... {:?}", ws);
 
     let (client_ws_sender, mut client_ws_rcv) = ws.split();
@@ -73,11 +75,14 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     //So here I would have an if message = GET
     let message: Vec<&str> = raw.split(' ').collect();
 
-
     if message[0] == "GET" || message[0] == "GET\n" {
+        if API_KEY != message[2] {
+            println!("INVALID APIKEY ATTEMPTED");
+            return;
+        }
         let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
         let mut file_path = format!("{}/{}", upload_dir, message[1]);
-        println!("{:?}", file_path); 
+        println!("{:?}", file_path);
         let file = match Path::new(&file_path).exists() {
             true => File::open(&file_path).await,
             false => {
@@ -90,7 +95,6 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
                     a: 0,
                     size: 0.0,
                 }];
-
 
                 tokio::fs::File::create(&file_path).await;
                 let data = serde_json::to_string(&empty_vec).unwrap();
@@ -120,20 +124,27 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     if message[0] == "PUT" || message[0] == "PUT\n" {
+        if API_KEY != message[2] {
+            println!("INVALID APIKEY ATTEMPTED");
+            return;
+        }
+
         //FOR DEBUGGING
         let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
         let filename = Path::new(upload_dir).join(message[1]);
-        let existing_dots : Vec<Dot> = read_dots_from_file(&filename).unwrap();
-        
-        //let raw : String = format!("{}", raw[2]); 
-        let dots : Vec<Dot> = serde_json::from_str(message[2]).unwrap();
-        
+        let existing_dots: Vec<Dot> = read_dots_from_file(&filename).unwrap();
+
+
+
+        //let raw : String = format!("{}", raw[2]);
+        let dots: Vec<Dot> = serde_json::from_str(message[3]).unwrap();
+
         let mut layered_proper: Vec<Dot> = Vec::new();
         layered_proper.extend(existing_dots);
         layered_proper.extend(dots.iter().cloned());
 
         println!("OPENING: {:?}", filename);
-        println!("DEPOSITING: {:?}",layered_proper);
+        println!("DEPOSITING: {:?}", layered_proper);
 
         write_file(filename, layered_proper).await;
 
@@ -151,13 +162,17 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 
     if message[0] == "DEL" || message[0] == "DE:\n" {
+        if API_KEY != message[2] {
+            println!("INVALID APIKEY ATTEMPTED");
+            return;
+        }
         //FOR DEBUGGING
         let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
         let filename = Path::new(upload_dir).join(message[1]);
         println!("DELETING: {:?}", filename);
-        
+
         tokio::fs::remove_file(filename).await;
-        
+
         let locked = clients.lock().await;
         match locked.get(client_id) {
             Some(v) => {
@@ -171,7 +186,6 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     };
 }
 
-
 fn read_dots_from_file(file: &Path) -> Result<Vec<Dot>, Box<dyn std::error::Error>> {
     let existing_dots: Vec<Dot> = if file.exists() {
         let file = OpenOptions::new().read(true).open(&file)?;
@@ -183,7 +197,10 @@ fn read_dots_from_file(file: &Path) -> Result<Vec<Dot>, Box<dyn std::error::Erro
     Ok(existing_dots)
 }
 
-async fn write_file(filename : PathBuf, file_contents: Vec<Dot>) -> Result<impl warp::Reply, warp::Rejection> {
+async fn write_file(
+    filename: PathBuf,
+    file_contents: Vec<Dot>,
+) -> Result<impl warp::Reply, warp::Rejection> {
     write(filename, serialize_dots_to_string(file_contents).unwrap()).await; // propagate errors with ?
     Ok(html("File written successfully!"))
 }
