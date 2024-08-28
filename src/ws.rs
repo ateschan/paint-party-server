@@ -4,13 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
-use tokio::fs;
 use tokio::fs::{write, File};
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
-use warp::filters::ext::get;
 use warp::reply::{html, with_status};
 use warp::ws::{Message, WebSocket};
 
@@ -23,6 +21,7 @@ pub struct Dot {
     pub b: u8,
     pub a: u8,
     pub size: f32,
+    pub id : String
 }
 
 static API_KEY: &str = "supersecretapikey";
@@ -95,6 +94,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
                     b: 0,
                     a: 0,
                     size: 0.0,
+                    id : "".to_string()
                 }];
 
                 let _ = tokio::fs::File::create(&file_path).await;
@@ -207,7 +207,7 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
 
 fn read_dots_from_file(file: &Path) -> Result<Vec<Dot>, Box<dyn std::error::Error>> {
     let existing_dots: Vec<Dot> = if file.exists() {
-        let file = OpenOptions::new().read(true).open(&file)?;
+        let file = OpenOptions::new().read(true).open(file)?;
         serde_json::from_reader(file)?
     } else {
         Vec::new()
