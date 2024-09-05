@@ -13,6 +13,12 @@ use uuid::Uuid;
 use warp::reply::html;
 use warp::ws::{Message, WebSocket};
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Chat {
+    pub message: String,
+    pub user: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Dot {
     pub x: f32,
@@ -79,7 +85,6 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     match message[0] {
         //Reads file
         "GET" => {
-
             let upload_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/", "rooms");
             let file_path = format!("{}/{}", upload_dir, message[1]);
             println!("{:?}", file_path);
@@ -254,6 +259,39 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
             let mut existing_dots: Vec<Dot> = read_dots_from_file(&filename).unwrap();
             existing_dots.retain(|dot| !dot_ids.contains(&dot.id));
             let _ = write_file(filename, existing_dots).await;
+        }
+
+                //Removes all dots from file, sends update to all
+        "CHT" => {
+            if message[2] != PEDK {
+                #[cfg(test)]
+                println!("INVALID APIKEY ATTEMPTED");
+                return;
+            }
+
+            let chat = Chat {
+                user : client_id.to_string(),
+                message : message[3].to_string()
+            };
+
+            let locked = clients.lock().await;
+            match locked.get(client_id) {
+                Some(v) => {
+                    if let Some(sender) = &v.sender {
+                        let _ = sender.send(Ok(Message::text("CHT_SELF_RES CHAT_SENT_SUCCESSFULLY")));
+                    }
+                }
+                None => return,
+            }
+            for client in locked.iter() {
+                if client.1.client_id != client_id {
+                    let sender = client.1.sender.clone().unwrap();
+                    let ms_builder = Message::text(format!("CHT_RES {}", serde_json::to_string(&chat).unwrap()));
+                    #[cfg(test)]
+                    println!("CHAT MESSAGE SENT: {:?}", ms_builder);
+                    let _ = sender.send(Ok(ms_builder));
+                }
+            }
         }
         &_ => todo!(),
     }
