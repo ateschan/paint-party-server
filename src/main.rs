@@ -1,8 +1,12 @@
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use warp::{ws::Message, Filter, Rejection};
-
+mod chat_io;
+mod delete_dots;
+mod get_dots;
 mod handlers;
+mod put_dots;
+mod remove_dots;
 mod ws;
 
 #[derive(Debug, Clone)]
