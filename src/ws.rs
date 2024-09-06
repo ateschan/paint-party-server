@@ -15,10 +15,11 @@ use uuid::Uuid;
 use warp::reply::html;
 use warp::ws::{Message, WebSocket};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Chat {
     pub message: String,
     pub user: String,
+    pub color: (u8, u8, u8),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -54,13 +55,15 @@ pub async fn client_connection(ws: WebSocket, clients: Clients) {
         client_id: uuid.clone(),
         sender: Some(client_sender),
         current_room: 0,
+        color: (0, 0, 0),
     };
+
     clients.lock().await.insert(uuid.clone(), new_client);
     while let Some(result) = client_ws_rcv.next().await {
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                println!("error receiving message for id {}): {}", uuid.clone(), e);
+                println!("Error receiving message for id {}): {}", uuid.clone(), e);
                 break;
             }
         };

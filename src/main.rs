@@ -14,6 +14,7 @@ pub struct Client {
     pub client_id: String,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
     pub current_room: i32,
+    pub color: (u8, u8, u8),
 }
 
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
