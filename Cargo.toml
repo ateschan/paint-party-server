@@ -3,6 +3,7 @@ name = "paint-party-server"
 version = "0.1.0"
 edition = "2021"
 description = "Realtime web server for paint party"
+license-file = "LICENSE"
 
 [dependencies]
 tokio = { version= "1", features = ["full"] }
