@@ -2,6 +2,7 @@
 name = "paint-party-server"
 version = "0.1.0"
 edition = "2021"
+description = "Realtime web server for paint party"
 
 [dependencies]
 tokio = { version= "1", features = ["full"] }
@@ -9,6 +10,6 @@ tokio-stream = "0.1.6"
 warp = "0.3"
 serde = { version = "1.0", features = ["derive"]}
 serde_json = "1.0"
-futures = { version = "0.3", default-features=false}
+futures = "0.3"
 uuid = { version = "1.1.2", features = ["v4", "fast-rng", "macro-diagnostics"]}
 rand = "0.8.5"
