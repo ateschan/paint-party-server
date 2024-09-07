@@ -22,10 +22,6 @@ type Result<T> = std::result::Result<T, Rejection>;
 
 #[tokio::main]
 async fn main() {
-    start_server().await;
-}
-
-pub async fn start_server() {
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
 
     println!("Configuring websocket route");
@@ -37,7 +33,6 @@ pub async fn start_server() {
     let routes = ws_route.with(warp::cors().allow_any_origin());
     println!("Starting server");
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
-
 }
 
 fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
