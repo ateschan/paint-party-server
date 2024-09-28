@@ -1,6 +1,5 @@
 use crate::ws::Chat;
 use crate::ws::PEDK;
-use crate::Client;
 use crate::Clients;
 use warp::ws::Message;
 extern crate rand;
@@ -12,7 +11,7 @@ pub async fn chat_io(client_id: &str, clients: &Clients, message: Vec<&str>) {
         println!("INVALID APIKEY ATTEMPTED");
         return;
     }
-    
+
     //init chat
     let mut chat = Chat::default();
 
@@ -21,13 +20,22 @@ pub async fn chat_io(client_id: &str, clients: &Clients, message: Vec<&str>) {
     match locked.get_mut(client_id) {
         Some(v) => {
             if let Some(sender) = &v.sender {
-                if v.color == (0,0,0) {
+                if v.color == (0, 0, 0) {
                     v.color = gen_color();
-                } 
+                }
                 //fill chat with message colot and content
                 chat = Chat {
                     user: client_id.to_string(),
-                    message: message[3].to_string(),
+                    message: {
+                        let mut messagebuilder : String = String::from("");
+                        for i in 3..message.len(){
+                            if i != 3 {
+                                messagebuilder += "_"
+                            }
+                            messagebuilder += message[i];
+                        }
+                        messagebuilder
+                    },
                     color: v.color,
                 };
                 let _ = sender.send(Ok(Message::text("CHT_SELF_RES CHAT_SENT_SUCCESSFULLY")));
