@@ -1,4 +1,4 @@
-use crate::ws::Dot;
+use crate::ws::{self, Dot};
 use crate::ws::{read_dots_from_file, write_file};
 use crate::ws::{PEDK, PEK};
 use crate::Clients;
@@ -12,7 +12,9 @@ pub async fn remove_dots(client_id: &str, clients: &Clients, message: Vec<&str>)
         println!("INVALID APIKEY ATTEMPTED");
         return;
     }
-    let dot_ids: Vec<String> = serde_json::from_str(message[3]).unwrap();
+    
+    //BUG NEEDS TO BE CHECKED
+    let dot_ids: Vec<String> = ws::deserialize_dot_ids_from_string(message[3]).unwrap();
 
     let locked = clients.lock().await;
     for client in locked.iter() {

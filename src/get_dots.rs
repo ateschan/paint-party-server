@@ -38,7 +38,10 @@ pub async fn get_dots(client_id: &str, clients: &Clients, message: Vec<&str>) {
     };
 
     let mut contents = vec![];
+
+    //BUG:: NEEDS TO BE CHECKED
     let _ = file.unwrap().read_to_end(&mut contents).await;
+
     let mut locked = clients.lock().await;
     match locked.get(client_id) {
         Some(v) => {

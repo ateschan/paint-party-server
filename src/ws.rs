@@ -59,11 +59,17 @@ pub async fn client_connection(ws: WebSocket, clients: Clients) {
     };
 
     clients.lock().await.insert(uuid.clone(), new_client);
+
+    //TODO Alert all other clients that another user is online with total number
+    join_notify(&clients).await;
+
     while let Some(result) = client_ws_rcv.next().await {
         let msg = match result {
             Ok(msg) => msg,
             Err(e) => {
-                println!("Error receiving message for id {}): {}", uuid.clone(), e);
+                //TODO Assume client disconnect and notify other users
+                leave_notify(&clients).await;
+                println!("Error receiving message for id {}: {}", uuid.clone(), e);
                 break;
             }
         };
@@ -116,6 +122,28 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     }
 }
 
+pub async fn join_notify(clients: &Clients) {
+    let locked = clients.lock().await;
+
+    for client in locked.iter() {
+            let sender = client.1.sender.clone().unwrap();
+
+            let ms_builder = Message::text(format!( "PLR_CNT {}", serde_json::to_string(&locked.len()).unwrap()));
+            let _ = sender.send(Ok(ms_builder));
+    }
+}
+
+pub async fn leave_notify(clients: &Clients) {
+    let locked = clients.lock().await;
+
+    for client in locked.iter() {
+            let sender = client.1.sender.clone().unwrap();
+
+            let ms_builder = Message::text(format!( "PLR_CNT {}", serde_json::to_string(&(locked.len() - 1)).unwrap()));
+            let _ = sender.send(Ok(ms_builder));
+    }
+}
+
 pub fn read_dots_from_file(file: &Path) -> Result<Vec<Dot>, Box<dyn std::error::Error>> {
     let existing_dots: Vec<Dot> = if file.exists() {
         let file = OpenOptions::new().read(true).open(file)?;
@@ -130,13 +158,28 @@ pub async fn write_file(
     filename: PathBuf,
     file_contents: Vec<Dot>,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    write(filename, serialize_dots_to_string(file_contents).unwrap())
-        .await
-        .unwrap(); // propagate errors with ?
-    Ok(html("File written successfully!"))
+    match serialize_dots_to_string(file_contents) {
+        Ok(contents) => match write(filename, contents).await {
+            Ok(_a) => Ok(html("File written successfully!")),
+            Err(_e) => Ok(html("File failed to write successfully!")),
+        },
+        Err(_e) => Ok(html("File failed to serialize string")),
+    }
 }
 
 pub fn serialize_dots_to_string(dots: Vec<Dot>) -> Result<String, serde_json::Error> {
     let json_string = serde_json::to_string(&dots)?;
+    Ok(json_string)
+}
+
+
+pub fn deserialize_dots_from_string(string : &str) -> Result<Vec<Dot>, serde_json::Error> {
+    let json_string = serde_json::from_str(string)?;
+    Ok(json_string)
+}
+
+
+pub fn deserialize_dot_ids_from_string(string : &str) -> Result<Vec<String>, serde_json::Error> {
+    let json_string = serde_json::from_str(string)?;
     Ok(json_string)
 }

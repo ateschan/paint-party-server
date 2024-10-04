@@ -5,15 +5,17 @@ use crate::Clients;
 use std::env;
 use std::path::Path;
 use warp::ws::Message;
-
+use crate::ws;
 pub async fn put_dots(client_id: &str, clients: &Clients, message: Vec<&str>) {
     if message[2] != PK && message[2] != PEK && message[2] != PEDK {
         #[cfg(test)]
         println!("INVALID APIKEY ATTEMPTED");
         return;
     }
+    
+    //BUG NEEDS TO BE CHECKED
+    let dots: Vec<Dot> = ws::deserialize_dots_from_string(message[3]).unwrap();
 
-    let dots: Vec<Dot> = serde_json::from_str(message[3]).unwrap();
     let locked = clients.lock().await;
     for client in locked.iter() {
         if client.1.client_id != client_id && client.1.current_room.to_string() == message[1] {
