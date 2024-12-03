@@ -1,3 +1,3 @@
  # PAINT PARTY SERVER 
- # DEFAULT ADDRESS IS ws://127.0.0.1/ws
+ # DEFAULT ADDRESS IS ws://127.0.0.1:8000/ws
  # DEFAULT SUPERADMIN APIKEY IS supersecretapikeyoftotalpower
